@@ -1,16 +1,12 @@
-from io import BytesIO
 import os
-from pprint import pprint as pp
-from typing import Collection
 import logging
+from io import BytesIO
 from pathlib import Path
+from typing import Collection
 from multiprocessing import Pool, cpu_count
 
 import requests
 from PIL import Image
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 
 
 class BingImageSearch:
@@ -70,20 +66,10 @@ class BingImageSearch:
     def download_images(self, urls: Collection[str]) -> Collection:
         if self.parallel:
             with Pool(cpu_count()) as pool:
-                images = pool.map(self.download_single, urls)
+                images = pool.map(download_image, urls)
         else:
-            images = [self.download_single(url) for url in urls]
-        return images
-
-    def download_single(self, url: str) -> Image:
-        self.log.info('[.] Getting image: %s', url)
-        image_data = requests.get(url)
-        try:
-            image_data.raise_for_status()
-        except requests.HTTPError:
-            self.log.error('[-] Cannot retrieve the image. Skipping...')
-        else:
-            return Image.open(BytesIO(image_data.content))
+            images = [download_image(url) for url in urls]
+        return [img for img in images if img is not None]
 
     def request_images_json(
             self, search_term: str, offset: int=0, count: int=10,
@@ -135,16 +121,8 @@ class BingImageSearch:
             path = folder/f'{index}.{img.format.lower()}'
             img.save(path)
             paths.append(path)
+        self.log.info(f'Number of images saved: {len(paths)}')
         return paths
-
-
-def apply(func, items: Collection, parallel: bool=True):
-    if parallel:
-        with Pool(cpu_count()) as pool:
-            results = pool.map(func, items)
-    else:
-        results = [func(item) for item in items]
-    return results
 
 
 def default_logger():
@@ -152,23 +130,11 @@ def default_logger():
     return logging.getLogger()
 
 
-def save_images_grid(images, filename):
-    f, axes = plt.subplots(4, 4)
-    for ax, image in zip(axes.flatten(), images):
-        ax.axis('off')
-        ax.imshow(image)
-    f.savefig(filename)
-
-
-def save_image(image: Image, filename: Path):
-    image.save(filename)
-    return filename
-
-
-def main():
-    search = BingImageSearch()
-    search.download(['white male face'])
-
-
-if __name__ == '__main__':
-    main()
+def download_image(url: str) -> Image:
+    image_data = requests.get(url)
+    try:
+        image_data.raise_for_status()
+    except requests.HTTPError:
+        return None
+    else:
+        return Image.open(BytesIO(image_data.content))
