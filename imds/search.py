@@ -13,10 +13,6 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 
-AUTH_KEY = '0f699f06f94f4629ad0de64ab4243f30'
-SEARCH_URL = "https://api.cognitive.microsoft.com/bing/v7.0/images/search"
-
-
 class BingImageSearch:
     """Simple wrapper on top of Microsoft Cognitive Search API.
 
