@@ -3,6 +3,7 @@ import logging
 from io import BytesIO
 from pathlib import Path
 from typing import Collection
+from collections import OrderedDict
 from multiprocessing import Pool, cpu_count
 
 import requests
@@ -18,7 +19,7 @@ class BingImageSearch:
     url = 'https://api.cognitive.microsoft.com/bing/v7.0/images/search'
     env_var = 'BING_SEARCH_API_KEY'
 
-    def __init__(self, api_key=None, log=None, parallel: bool=True):
+    def __init__(self, api_key=None, log=None, parallel: bool=False):
         if api_key is None:
             if self.env_var not in os.environ:
                 raise ValueError(
@@ -29,7 +30,8 @@ class BingImageSearch:
         self.parallel = parallel
         self.headers = {'Ocp-Apim-Subscription-Key': api_key}
 
-    def download(self, queries: Collection[str], folder: str=None):
+    def download(self, queries: Collection[str], limit: int=1000,
+                 folder: str=None):
 
         def get_urls(r):
             values = r.get('value')
@@ -38,15 +40,17 @@ class BingImageSearch:
             return [img['thumbnailUrl'] for img in values]
 
 
-        offset, count = 0, 20
+        count = 0, 50
         folder = Path(folder or os.getcwd())
         os.makedirs(folder, exist_ok=True)
         downloaded = []
+        query_images = OrderedDict()
         log = self.log
+        pad = len(str(limit))
 
         for query in queries:
             log.info('[.] Running query: %s', query)
-            index = 0
+            index, offset = 0, 0
             while True:
                 result = self.request_images_json(query, offset, count)
                 if result is None:
@@ -60,6 +64,17 @@ class BingImageSearch:
                 index += len(paths)
                 offset = result['nextOffset']
                 downloaded.extend(paths)
+                total = len(downloaded)
+                self.log.info(f'[.] %0{pad}d images downloaded so far', total)
+                if len(downloaded) >= limit:
+                    break
+            query_images[query] = downloaded
+
+        with (folder/'queries.csv').open('w') as file:
+            file.write(f'query,path\n')
+            for query, paths in query_images.items():
+                for path in paths:
+                    file.write(f'{query},{path.as_posix()}\n')
 
         return downloaded
 
@@ -96,7 +111,8 @@ class BingImageSearch:
         else:
             return response.json()
 
-    def save_images(self, images: Collection, folder: Path, start: int=0):
+    @staticmethod
+    def save_images(images: Collection, folder: Path, start: int=0):
         """Saves downloaded images into folder.
 
         Each image is named after its order in collection, starting from
@@ -121,7 +137,6 @@ class BingImageSearch:
             path = folder/f'{index}.{img.format.lower()}'
             img.save(path)
             paths.append(path)
-        self.log.info(f'Number of images saved: {len(paths)}')
         return paths
 
 
