@@ -11,6 +11,6 @@ criteria, and saves them into folder.
 
 The following goals are to be implemented as a part of this projects
 
-[ ] Retrieving image thumbnails using Bing Image Search
-[ ] Organizing images into folders (for classification tasks)
-[ ] Creating an archive with images in zip/tar.gz format
+- [ ] Retrieving image thumbnails using Bing Image Search
+- [ ] Organizing images into folders (for classification tasks)
+- [ ] Creating an archive with images in zip/tar.gz format
